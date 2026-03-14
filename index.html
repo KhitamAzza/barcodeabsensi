@@ -2,11 +2,12 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>QR Scanner Test</title>
+<title>QR Absensi</title>
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
+
 body{
   font-family: Arial;
   text-align:center;
@@ -15,43 +16,83 @@ body{
 }
 
 #reader{
-  width:300px;
+  width:350px;
   margin:auto;
 }
 
-#result{
+#status{
   margin-top:20px;
-  font-size:20px;
+  font-size:22px;
+}
+
+.ok{
   color:lime;
 }
-</style>
 
+.error{
+  color:red;
+}
+
+</style>
 </head>
 
 <body>
 
-<h2>QR Scanner Test</h2>
+<h2>Scan QR Absensi</h2>
 
 <div id="reader"></div>
 
-<div id="result">Scan a QR Code</div>
+<div id="status">Menunggu scan...</div>
 
 <script>
 
-function onScanSuccess(decodedText, decodedResult) {
+const API_URL = "https://script.google.com/macros/s/AKfycbzwgwoKQNXSWn7BrwlzZe1XmVlY0JnGgA6CKY7cjVUXols6Oo_7IyBIiuVDmoQh__wO/exec";
 
-  document.getElementById("result").innerText =
-  "Scanned: " + decodedText;
+let lastScan = 0;
+
+function onScanSuccess(decodedText){
+
+  const now = Date.now();
+
+  // anti double scan (2 sec)
+  if(now - lastScan < 2000){
+    return;
+  }
+
+  lastScan = now;
+
+  document.getElementById("status").innerText =
+  "Mengirim ID: " + decodedText;
+
+  fetch(API_URL + "?action=scan&id=" + decodedText)
+  .then(r => r.json())
+  .then(data => {
+
+      if(data.status === "ok"){
+
+        document.getElementById("status").className="ok";
+        document.getElementById("status").innerText =
+        "✔ " + decodedText + " → " + data.attendance;
+
+      }else{
+
+        document.getElementById("status").className="error";
+        document.getElementById("status").innerText =
+        "Error";
+
+      }
+
+  });
 
 }
 
-let html5QrcodeScanner = new Html5QrcodeScanner(
-  "reader",
-  { fps: 10, qrbox: 250 },
-  false
-);
+const qr = new Html5Qrcode("reader");
 
-html5QrcodeScanner.render(onScanSuccess);
+qr.start(
+  { facingMode:"environment" },
+  { fps:10, qrbox:250 },
+  onScanSuccess
+);
 
 </script>
 
