@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+
 <meta charset="UTF-8">
 <title>QR Absensi</title>
 
@@ -9,7 +10,7 @@
 <style>
 
 body{
-  font-family: Arial;
+  font-family:Arial;
   text-align:center;
   background:#111;
   color:white;
@@ -34,6 +35,7 @@ body{
 }
 
 </style>
+
 </head>
 
 <body>
@@ -54,78 +56,57 @@ const statusEl = document.getElementById("status");
 
 const qr = new Html5Qrcode("reader");
 
-
 function startScanner(){
 
   qr.start(
     { facingMode:"environment" },
-    { fps:15, qrbox:250 },
+    { fps:12, qrbox:250 },
     onScanSuccess
   );
 
 }
 
-
 function onScanSuccess(decodedText){
 
   const now = Date.now();
 
-  // anti double scan
   if(now - lastScan < 2000){
     return;
   }
 
   lastScan = now;
 
-  statusEl.className = "";
-  statusEl.innerText = "Mengirim ID: " + decodedText;
+  statusEl.className="";
+  statusEl.innerText="Mengirim ID: "+decodedText;
 
-  qr.stop().then(() => {
+  fetch(API_URL+"?action=scan&id="+decodedText)
+  .then(res=>res.json())
+  .then(data=>{
 
-    fetch(API_URL + "?action=scan&id=" + decodedText, {
-      method:"GET",
-      mode:"cors"
-    })
-    .then(res => res.json())
-    .then(data => {
+    if(data.status==="ok"){
 
-      if(data.status === "ok"){
+      statusEl.className="ok";
+      statusEl.innerText="✔ "+decodedText+" → "+data.scanType;
 
-        statusEl.className = "ok";
-        statusEl.innerText =
-        "✔ " + decodedText + " → " + data.scanType;
+    }else{
 
-      }
-      else{
+      statusEl.className="error";
+      statusEl.innerText=data.message || "Server Error";
 
-        statusEl.className = "error";
-        statusEl.innerText =
-        data.message || "Server Error";
+    }
 
-      }
+  })
+  .catch(err=>{
 
-      // restart scanner
-      setTimeout(startScanner,1500);
+    console.log(err);
 
-    })
-    .catch(err => {
-
-      console.log(err);
-
-      statusEl.className = "error";
-      statusEl.innerText = "Network Error";
-
-      // restart scanner even if error
-      setTimeout(startScanner,2000);
-
-    });
+    statusEl.className="error";
+    statusEl.innerText="Network Error";
 
   });
 
 }
 
-
-// start camera
 startScanner();
 
 </script>
