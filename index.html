@@ -65,26 +65,26 @@ function onScanSuccess(decodedText){
   "Mengirim ID: " + decodedText;
 
   fetch(API_URL + "?action=scan&id=" + decodedText)
-  .then(r => r.json())
-  .then(data => {
+.then(r => r.json())
+.then(data => {
 
-      if(data.status === "ok"){
+  if(data.status === "ok"){
 
-        document.getElementById("status").className="ok";
-        document.getElementById("status").innerText =
-        "✔ " + decodedText + " → " + data.attendance;
+    status.className="ok";
+    status.innerText = "✔ " + decodedText + " → " + data.scanType;
 
-      }else{
+  }else{
 
-        document.getElementById("status").className="error";
-        document.getElementById("status").innerText =
-        "Error";
+    status.className="error";
+    status.innerText = data.message || "Server error";
 
-      }
+  }
 
-  });
-
-}
+})
+.catch(err => {
+  status.className="error";
+  status.innerText = "Network error";
+});
 
 const qr = new Html5Qrcode("reader");
 
