@@ -50,46 +50,73 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzwgwoKQNXSWn7BrwlzZe1X
 
 let lastScan = 0;
 
+const statusEl = document.getElementById("status");
+
+const qr = new Html5Qrcode("reader");
+
+
+function startScanner(){
+
+  qr.start(
+    { facingMode:"environment" },
+    { fps:15, qrbox:250 },
+    onScanSuccess
+  );
+
+}
+
+
 function onScanSuccess(decodedText){
 
   const now = Date.now();
 
+  // anti double scan
   if(now - lastScan < 2000){
     return;
   }
 
   lastScan = now;
 
-  document.getElementById("status").innerText =
-  "Mengirim ID: " + decodedText;
+  statusEl.className = "";
+  statusEl.innerText = "Mengirim ID: " + decodedText;
 
   qr.stop().then(() => {
 
-    fetch(API_URL + "?action=scan&id=" + decodedText)
-    .then(r => r.json())
+    fetch(API_URL + "?action=scan&id=" + decodedText, {
+      method:"GET",
+      mode:"cors"
+    })
+    .then(res => res.json())
     .then(data => {
 
       if(data.status === "ok"){
 
-        document.getElementById("status").className="ok";
-        document.getElementById("status").innerText =
+        statusEl.className = "ok";
+        statusEl.innerText =
         "✔ " + decodedText + " → " + data.scanType;
 
-      }else{
+      }
+      else{
 
-        document.getElementById("status").className="error";
-        document.getElementById("status").innerText =
-        "Server Error";
+        statusEl.className = "error";
+        statusEl.innerText =
+        data.message || "Server Error";
 
       }
 
-      setTimeout(() => {
-        qr.start(
-          { facingMode:"environment" },
-          { fps:10, qrbox:250 },
-          onScanSuccess
-        );
-      },1500);
+      // restart scanner
+      setTimeout(startScanner,1500);
+
+    })
+    .catch(err => {
+
+      console.log(err);
+
+      statusEl.className = "error";
+      statusEl.innerText = "Network Error";
+
+      // restart scanner even if error
+      setTimeout(startScanner,2000);
 
     });
 
@@ -97,13 +124,9 @@ function onScanSuccess(decodedText){
 
 }
 
-const qr = new Html5Qrcode("reader");
 
-qr.start(
-  { facingMode:"environment" },
-  { fps:10, qrbox:250 },
-  onScanSuccess
-);
+// start camera
+startScanner();
 
 </script>
 
