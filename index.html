@@ -76,6 +76,18 @@ function onScanSuccess(decodedText){
 
   lastScan = now;
 
+  // === SAVE TO LOCALSTORAGE ===
+  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+
+  scans.push({
+    id: decodedText,
+    type: "PAGI",
+    time: now
+  });
+
+  localStorage.setItem("scanQueue", JSON.stringify(scans));
+  // ============================
+
   statusEl.className="";
   statusEl.innerText="Mengirim ID: "+decodedText;
 
