@@ -208,31 +208,46 @@ async function startScanner(){
     return;
   }
 
-  let cameraId = null;
+  let selectedCamera = null;
 
   for(const cam of devices){
 
     const name = (cam.label || "").toLowerCase();
 
+    // reject front cameras
+    if(name.includes("front") || name.includes("user")){
+      continue;
+    }
+
+    // reject ultrawide lenses
+    if(name.includes("wide") || name.includes("ultra")){
+      continue;
+    }
+
+    // prefer normal rear camera
     if(
       name.includes("back") ||
       name.includes("rear") ||
       name.includes("environment")
     ){
-      cameraId = cam.id;
+      selectedCamera = cam.id;
       break;
     }
 
   }
 
-  // fallback
-  if(!cameraId){
-    cameraId = devices[0].id;
+  // fallback if nothing matched
+  if(!selectedCamera){
+    selectedCamera = devices[0].id;
   }
 
   qr.start(
-    cameraId,
-    { fps:12, qrbox:{ width:200, height:200 } },
+    selectedCamera,
+    {
+      fps:12,
+      qrbox:{ width:220, height:220 },
+      aspectRatio:1
+    },
     onScanSuccess
   );
 
