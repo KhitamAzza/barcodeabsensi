@@ -16,10 +16,34 @@ body{
   color:white;
 }
 
+/* CONNECTION STATUS */
+
+#connectionStatus{
+  position:fixed;
+  top:10px;
+  right:10px;
+  font-size:16px;
+  padding:6px 12px;
+  border-radius:6px;
+  background:#222;
+}
+
+.online{
+  color:lime;
+}
+
+.offline{
+  color:red;
+}
+
+/* SCANNER */
+
 #reader{
   width:350px;
   margin:auto;
 }
+
+/* STATUS TEXT */
 
 #status{
   margin-top:20px;
@@ -34,6 +58,36 @@ body{
   color:red;
 }
 
+/* LOADING OVERLAY */
+
+#loadingOverlay{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.9);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  z-index:999;
+}
+
+.loader{
+  border:6px solid #333;
+  border-top:6px solid lime;
+  border-radius:50%;
+  width:60px;
+  height:60px;
+  animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+  0%{transform:rotate(0deg);}
+  100%{transform:rotate(360deg);}
+}
+
 </style>
 
 </head>
@@ -42,37 +96,80 @@ body{
 
 <h2>Scan QR Absensi</h2>
 
+<div id="connectionStatus">🟢 Online</div>
+
 <div id="reader"></div>
 
 <div id="status">Menunggu scan...</div>
 
-<audio id="beepSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+<div id="loadingOverlay">
+  <div class="loader"></div>
+  <p>Mengirim data...</p>
+</div>
+
+<audio id="beepSound"
+src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">
+</audio>
 
 <script>
-  let sendTimer = null;
 
 const API_URL = "https://script.google.com/macros/s/AKfycbzwgwoKQNXSWn7BrwlzZe1XmVlY0JnGgA6CKY7cjVUXols6Oo_7IyBIiuVDmoQh__wO/exec";
 
 let lastScan = 0;
+let sendTimer = null;
 
 const statusEl = document.getElementById("status");
-
 const qr = new Html5Qrcode("reader");
+
+
+/* =========================
+   CONNECTION INDICATOR
+========================= */
+
+function updateConnection(){
+
+  const el = document.getElementById("connectionStatus");
+
+  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+
+  if(navigator.onLine){
+
+    el.className="online";
+    el.innerText="🟢 Online";
+
+  }else{
+
+    el.className="offline";
+    el.innerText="🔴 Offline ("+scans.length+" data tersimpan)";
+
+  }
+
+}
+
+window.addEventListener("online",updateConnection);
+window.addEventListener("offline",updateConnection);
+
+
+/* =========================
+   START CAMERA
+========================= */
 
 async function startScanner(){
 
   const devices = await Html5Qrcode.getCameras();
 
-  if(!devices || devices.length === 0){
-    statusEl.innerText = "No camera found";
+  if(!devices || devices.length===0){
+
+    statusEl.innerText="No camera found";
     return;
+
   }
 
-  let cameraId = null;
+  let cameraId=null;
 
   for(const cam of devices){
 
-    const name = (cam.label || "").toLowerCase();
+    const name=(cam.label||"").toLowerCase();
 
     if(
       name.includes("back") ||
@@ -80,61 +177,62 @@ async function startScanner(){
       name.includes("environment")
     ){
       if(!name.includes("wide")){
-        cameraId = cam.id;
+        cameraId=cam.id;
         break;
       }
     }
 
   }
 
-  // fallback if detection fails
   if(!cameraId){
-    cameraId = devices[0].id;
+    cameraId=devices[0].id;
   }
 
   qr.start(
     cameraId,
-    { fps:12, qrbox:{ width:200, height:200 } },
+    {fps:12,qrbox:{width:200,height:200}},
     onScanSuccess
   );
 
 }
 
+
+/* =========================
+   SCAN SUCCESS
+========================= */
+
 function onScanSuccess(decodedText){
 
   const now = Date.now();
 
-  // anti double scan
-  if(now - lastScan < 2000){
+  if(now-lastScan<2000){
     return;
   }
 
-  lastScan = now;
+  lastScan=now;
 
   let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
 
-  // check duplicate in queue
-  let exists = scans.some(s => s.id === decodedText);
+  let exists = scans.some(s=>s.id===decodedText);
 
   if(!exists){
 
     scans.push({
-      id: decodedText,
-      type: "PAGI",
-      time: now
+      id:decodedText,
+      type:"PAGI",
+      time:now
     });
 
-    localStorage.setItem("scanQueue", JSON.stringify(scans));
+    localStorage.setItem("scanQueue",JSON.stringify(scans));
 
-    // 🔊 play beep
     document.getElementById("beepSound").play();
 
     statusEl.className="ok";
-    statusEl.innerText="✔ Scan tersimpan: " + decodedText;
-// reset idle timer
-clearTimeout(sendTimer);
+    statusEl.innerText="✔ Scan tersimpan: "+decodedText;
 
-sendTimer = setTimeout(sendQueue, 7000);
+    clearTimeout(sendTimer);
+    sendTimer=setTimeout(sendQueue,7000);
+
   }else{
 
     statusEl.className="error";
@@ -142,26 +240,42 @@ sendTimer = setTimeout(sendQueue, 7000);
 
   }
 
+  updateConnection();
+
 }
+
+
+/* =========================
+   SEND QUEUE
+========================= */
+
 function sendQueue(){
 
   let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
 
-  if(scans.length === 0){
+  if(scans.length===0){
     return;
   }
 
   statusEl.className="";
   statusEl.innerText="Mengirim "+scans.length+" data...";
 
-  fetch(API_URL + "?action=bulkScan",{
+  document.getElementById("loadingOverlay").style.display="flex";
+  document.getElementById("reader").style.display="none";
+
+  fetch(API_URL+"?action=bulkScan",{
     method:"POST",
-    body: JSON.stringify(scans)
+    body:JSON.stringify(scans)
   })
+
   .then(r=>r.json())
+
   .then(data=>{
 
-    if(data.status === "ok"){
+    document.getElementById("loadingOverlay").style.display="none";
+    document.getElementById("reader").style.display="block";
+
+    if(data.status==="ok"){
 
       localStorage.removeItem("scanQueue");
 
@@ -175,17 +289,49 @@ function sendQueue(){
 
     }
 
+    updateConnection();
+
   })
+
   .catch(err=>{
 
     console.log(err);
 
+    document.getElementById("loadingOverlay").style.display="none";
+    document.getElementById("reader").style.display="block";
+
     statusEl.className="error";
     statusEl.innerText="Network error (data tetap tersimpan)";
+
+    updateConnection();
 
   });
 
 }
+
+
+/* =========================
+   AUTO SEND ON PAGE LOAD
+========================= */
+
+window.addEventListener("load",()=>{
+
+  updateConnection();
+
+  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+
+  if(scans.length>0){
+
+    statusEl.innerText="Mengirim data tertunda...";
+    sendQueue();
+
+  }
+
+});
+
+
+/* START CAMERA */
+
 startScanner();
 
 </script>
