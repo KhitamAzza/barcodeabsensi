@@ -201,18 +201,42 @@ START SCANNER
 
 async function startScanner(){
 
-const devices=await Html5Qrcode.getCameras();
+  const devices = await Html5Qrcode.getCameras();
 
-const cameraId=devices[0].id;
+  if(!devices || devices.length === 0){
+    statusEl.innerText = "No camera found";
+    return;
+  }
 
-qr.start(
-cameraId,
-{fps:12,qrbox:{width:200,height:200}},
-onScanSuccess
-);
+  let cameraId = null;
+
+  for(const cam of devices){
+
+    const name = (cam.label || "").toLowerCase();
+
+    if(
+      name.includes("back") ||
+      name.includes("rear") ||
+      name.includes("environment")
+    ){
+      cameraId = cam.id;
+      break;
+    }
+
+  }
+
+  // fallback
+  if(!cameraId){
+    cameraId = devices[0].id;
+  }
+
+  qr.start(
+    cameraId,
+    { fps:12, qrbox:{ width:200, height:200 } },
+    onScanSuccess
+  );
 
 }
-
 
 /* ======================
 DISPLAY STUDENT
