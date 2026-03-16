@@ -1,319 +1,491 @@
 <!DOCTYPE html>
 <html>
 <head>
-
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QR Absensi</title>
-
 <script src="https://unpkg.com/html5-qrcode"></script>
-
 <style>
-
-body{
-  margin:0;
-  font-family:Arial;
-  background:#111;
-  color:white;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* MAIN LAYOUT */
-
-.container{
-  display:flex;
-  height:100vh;
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  text-align: center;
+  background: #0a0a0a;
+  color: white;
+  min-height: 100vh;
+  padding: 20px;
 }
 
-/* SCANNER PANEL */
-
-.scanPanel{
-  width:320px;
-  padding:20px;
-  border-right:2px solid #333;
+h2 {
+  margin-bottom: 15px;
+  font-size: 24px;
 }
 
-#reader{
-  width:100%;
+/* CONNECTION STATUS */
+#connectionStatus {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #222;
+  font-weight: 500;
 }
 
-/* STUDENT PANEL */
-
-.infoPanel{
-  flex:1;
-  padding:40px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+.online {
+  color: #00ff88;
+  border: 1px solid #00ff8833;
 }
 
-.studentCard{
-  background:#1b1b1b;
-  border-radius:12px;
-  padding:30px;
-  width:420px;
-  text-align:center;
-  box-shadow:0 0 20px rgba(0,0,0,0.6);
+.offline {
+  color: #ff4444;
+  border: 1px solid #ff444433;
 }
 
-.studentPhoto{
-  width:120px;
-  height:120px;
-  border-radius:10px;
-  object-fit:cover;
-  margin-bottom:15px;
+/* SCANNER */
+#reader {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto 20px;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-.studentID{
-  font-size:18px;
-  color:#aaa;
+/* SCAN RESULT CARD */
+#scanResult {
+  display: none;
+  max-width: 400px;
+  margin: 20px auto;
+  padding: 20px;
+  background: linear-gradient(145deg, #1a1a1a, #222);
+  border-radius: 16px;
+  border: 1px solid #333;
+  animation: slideUp 0.3s ease;
 }
 
-.studentName{
-  font-size:28px;
-  font-weight:bold;
-  margin-top:10px;
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.studentClass{
-  font-size:20px;
-  color:#ccc;
+#resFoto {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 3px solid #00ff88;
+  margin-bottom: 15px;
+  background: #333;
 }
 
-.scanTime{
-  margin-top:15px;
-  font-size:18px;
-  color:lime;
+#resFoto.no-photo {
+  display: none;
 }
 
-/* STATUS */
-
-#status{
-  margin-top:20px;
+#resNama {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 5px;
+  color: #fff;
 }
 
-/* MOBILE */
-
-@media(max-width:800px){
-
-.container{
-  flex-direction:column;
+#resKelas {
+  font-size: 16px;
+  color: #aaa;
+  margin-bottom: 10px;
 }
 
-.scanPanel{
-  width:100%;
-  border-right:none;
-  border-bottom:2px solid #333;
+#resMeta {
+  font-size: 13px;
+  color: #666;
+  padding-top: 10px;
+  border-top: 1px solid #333;
 }
 
-.infoPanel{
-  padding:20px;
+#resStatus {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 20px;
+  display: inline-block;
 }
 
-.studentCard{
-  width:90%;
+.status-ok {
+  background: #00ff8822;
+  color: #00ff88;
 }
 
-.studentPhoto{
-  width:100px;
-  height:100px;
+.status-error {
+  background: #ff444422;
+  color: #ff4444;
 }
 
+/* STATUS TEXT */
+#status {
+  margin-top: 15px;
+  font-size: 16px;
+  color: #888;
+  min-height: 24px;
 }
 
+/* LOADING OVERLAY */
+#loadingOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.95);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  z-index: 999;
+}
+
+.loader {
+  border: 4px solid #333;
+  border-top: 4px solid #00ff88;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* QUEUE INDICATOR */
+#queueIndicator {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #222;
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 14px;
+  display: none;
+  border: 1px solid #444;
+}
+
+#queueCount {
+  color: #00ff88;
+  font-weight: bold;
+}
 </style>
-
 </head>
 
 <body>
 
-<div class="container">
+<h2>📷 Scan QR Absensi</h2>
 
-<!-- LEFT / SCANNER -->
-
-<div class="scanPanel">
-
-<h3>Scanner</h3>
+<div id="connectionStatus">🟢 Online</div>
 
 <div id="reader"></div>
 
-<div id="status">Menunggu scan...</div>
-
+<!-- Scan Result Display -->
+<div id="scanResult">
+  <img id="resFoto" src="" alt="Foto Siswa">
+  <div id="resNama">-</div>
+  <div id="resKelas">-</div>
+  <div id="resMeta">-</div>
+  <div id="resStatus">-</div>
 </div>
 
-<!-- RIGHT / STUDENT INFO -->
+<div id="status">Memuat data siswa...</div>
 
-<div class="infoPanel">
-
-<div class="studentCard">
-
-<img id="studentPhoto" class="studentPhoto"
-src="https://via.placeholder.com/120">
-
-<div id="studentID" class="studentID">ID: -</div>
-
-<div id="studentName" class="studentName">
-Belum ada scan
+<div id="queueIndicator">
+  <span id="queueCount">0</span> scan menunggu
 </div>
 
-<div id="studentClass" class="studentClass"></div>
-
-<div id="scanTime" class="scanTime"></div>
-
+<div id="loadingOverlay">
+  <div class="loader"></div>
+  <p>Mengirim data...</p>
 </div>
 
-</div>
-
-</div>
-
-<audio id="beepSound"
-src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+<audio id="beepSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
 <script>
 
-const API_URL="https://script.google.com/macros/s/AKfycbzwgwoKQNXSWn7BrwlzZe1XmVlY0JnGgA6CKY7cjVUXols6Oo_7IyBIiuVDmoQh__wO/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzwgwoKQNXSWn7BrwlzZe1XmVlY0JnGgA6CKY7cjVUXols6Oo_7IyBIiuVDmoQh__wO/exec";
 
-let students={};
+let lastScan = 0;
+let sendTimer = null;
+let students = {};
+let isReady = false;
 
-const qr=new Html5Qrcode("reader");
+const statusEl = document.getElementById("status");
+const scanResultEl = document.getElementById("scanResult");
+const qr = new Html5Qrcode("reader");
 
-const statusEl=document.getElementById("status");
+/* =========================
+   CONNECTION INDICATOR
+========================= */
 
-let lastScan=0;
-
-
-/* ======================
-LOAD STUDENT DATABASE
-====================== */
-
-async function loadStudents(){
-
-  const res = await fetch(API_URL + "?action=students");
-
-  const data = await res.json();
-
-  students = data;
-
+function updateConnection() {
+  const el = document.getElementById("connectionStatus");
+  const scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+  
+  if (navigator.onLine) {
+    el.className = "online";
+    el.innerText = "🟢 Online";
+  } else {
+    el.className = "offline";
+    el.innerText = "🔴 Offline (" + scans.length + " data)";
+  }
+  
+  updateQueueIndicator();
 }
 
+function updateQueueIndicator() {
+  const scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+  const indicator = document.getElementById("queueIndicator");
+  const count = document.getElementById("queueCount");
+  
+  if (scans.length > 0) {
+    count.innerText = scans.length;
+    indicator.style.display = "block";
+  } else {
+    indicator.style.display = "none";
+  }
+}
 
-/* ======================
-START SCANNER
-====================== */
+window.addEventListener("online", updateConnection);
+window.addEventListener("offline", updateConnection);
 
-async function startScanner(){
+/* =========================
+   LOAD STUDENTS
+========================= */
 
-  const devices = await Html5Qrcode.getCameras();
+async function loadStudents() {
+  try {
+    const res = await fetch(API_URL + "?action=students");
+    const data = await res.json();
+    students = data || {};
+    isReady = true;
+    statusEl.innerText = "Siap scan...";
+    console.log("Loaded", Object.keys(students).length, "students");
+  } catch (err) {
+    console.error("Failed to load students:", err);
+    statusEl.innerText = "Gagal memuat data. Refresh halaman.";
+    statusEl.style.color = "#ff4444";
+  }
+}
 
-  if(!devices || devices.length === 0){
-    statusEl.innerText = "No camera found";
+/* =========================
+   START CAMERA
+========================= */
+
+async function startScanner() {
+  try {
+    const devices = await Html5Qrcode.getCameras();
+    
+    if (!devices || devices.length === 0) {
+      statusEl.innerText = "Kamera tidak ditemukan";
+      return;
+    }
+    
+    let cameraId = null;
+    for (const cam of devices) {
+      const name = (cam.label || "").toLowerCase();
+      if ((name.includes("back") || name.includes("rear") || name.includes("environment")) && !name.includes("wide")) {
+        cameraId = cam.id;
+        break;
+      }
+    }
+    
+    if (!cameraId) cameraId = devices[0].id;
+    
+    await qr.start(
+      cameraId,
+      { fps: 12, qrbox: { width: 250, height: 250 } },
+      onScanSuccess,
+      onScanFailure
+    );
+    
+  } catch (err) {
+    statusEl.innerText = "Error kamera: " + err.message;
+    console.error(err);
+  }
+}
+
+function onScanFailure(err) {
+  // Silent - QR library calls this frequently when no code found
+}
+
+/* =========================
+   SCAN SUCCESS
+========================= */
+
+function onScanSuccess(decodedText) {
+  if (!isReady) {
+    statusEl.innerText = "Data belum siap, tunggu...";
     return;
   }
-
-  let selectedCamera = null;
-
-  for(const cam of devices){
-
-    const name = (cam.label || "").toLowerCase();
-
-    // reject front cameras
-    if(name.includes("front") || name.includes("user")){
-      continue;
-    }
-
-    // reject ultrawide lenses
-    if(name.includes("wide") || name.includes("ultra")){
-      continue;
-    }
-
-    // prefer normal rear camera
-    if(
-      name.includes("back") ||
-      name.includes("rear") ||
-      name.includes("environment")
-    ){
-      selectedCamera = cam.id;
-      break;
-    }
-
+  
+  const now = Date.now();
+  if (now - lastScan < 2000) return;
+  lastScan = now;
+  
+  const student = students[decodedText];
+  const timeStr = new Date(now).toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+  
+  // Display result immediately
+  displayScanResult(decodedText, student, timeStr, now);
+  
+  // Play sound
+  document.getElementById("beepSound").play().catch(() => {});
+  
+  // Queue the scan
+  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+  const exists = scans.some(s => s.id === decodedText);
+  
+  if (!exists) {
+    scans.push({
+      id: decodedText,
+      type: "PAGI",
+      time: now
+    });
+    localStorage.setItem("scanQueue", JSON.stringify(scans));
+    updateQueueIndicator();
+    
+    // Auto-send after 5 seconds
+    clearTimeout(sendTimer);
+    sendTimer = setTimeout(sendQueue, 5000);
   }
+  
+  updateConnection();
+}
 
-  // fallback if nothing matched
-  if(!selectedCamera){
-    selectedCamera = devices[0].id;
+function displayScanResult(id, student, timeStr, timestamp) {
+  const fotoEl = document.getElementById("resFoto");
+  const namaEl = document.getElementById("resNama");
+  const kelasEl = document.getElementById("resKelas");
+  const metaEl = document.getElementById("resMeta");
+  const statusResEl = document.getElementById("resStatus");
+  
+  if (student) {
+    // Known student
+    fotoEl.src = student.foto || "";
+    fotoEl.style.display = student.foto ? "block" : "none";
+    fotoEl.className = student.foto ? "" : "no-photo";
+    
+    namaEl.innerText = student.nama || "Unknown";
+    kelasEl.innerText = student.kelas || "-";
+    metaEl.innerText = `${id} • ${timeStr}`;
+    
+    statusResEl.innerText = "✓ Tersimpan";
+    statusResEl.className = "status-ok";
+    
+    statusEl.innerText = "Scan berhasil";
+    statusEl.style.color = "#00ff88";
+  } else {
+    // Unknown ID
+    fotoEl.style.display = "none";
+    namaEl.innerText = "Tidak Dikenal";
+    kelasEl.innerText = "-";
+    metaEl.innerText = `${id} • ${timeStr}`;
+    
+    statusResEl.innerText = "✗ ID tidak terdaftar";
+    statusResEl.className = "status-error";
+    
+    statusEl.innerText = "ID tidak ditemukan di database";
+    statusEl.style.color = "#ff4444";
   }
-
-  qr.start(
-    selectedCamera,
-    {
-      fps:12,
-      qrbox:{ width:220, height:220 },
-      aspectRatio:1
-    },
-    onScanSuccess
-  );
-
+  
+  // Show result card
+  scanResultEl.style.display = "block";
+  
+  // Hide after 4 seconds if you want auto-hide
+  // setTimeout(() => { scanResultEl.style.display = "none"; }, 4000);
 }
 
-/* ======================
-DISPLAY STUDENT
-====================== */
+/* =========================
+   SEND QUEUE
+========================= */
 
-function displayStudent(id){
-
-const s=students[id];
-
-const time=new Date().toLocaleTimeString();
-
-document.getElementById("studentID").innerText="ID: "+id;
-
-if(!s){
-
-document.getElementById("studentName").innerText="Unknown ID";
-
-document.getElementById("studentClass").innerText="";
-
-return;
-
+async function sendQueue() {
+  const scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+  if (scans.length === 0) return;
+  
+  if (!navigator.onLine) {
+    statusEl.innerText = "Offline - data tersimpan lokal";
+    return;
+  }
+  
+  statusEl.innerText = `Mengirim ${scans.length} data...`;
+  document.getElementById("loadingOverlay").style.display = "flex";
+  
+  try {
+    const res = await fetch(API_URL + "?action=bulkScan", {
+      method: "POST",
+      body: JSON.stringify(scans)
+    });
+    
+    const data = await res.json();
+    document.getElementById("loadingOverlay").style.display = "none";
+    
+    if (data.status === "ok") {
+      localStorage.removeItem("scanQueue");
+      statusEl.innerText = `✓ ${data.count || scans.length} data terkirim`;
+      statusEl.style.color = "#00ff88";
+      updateQueueIndicator();
+    } else {
+      throw new Error("Server error");
+    }
+    
+  } catch (err) {
+    console.error(err);
+    document.getElementById("loadingOverlay").style.display = "none";
+    statusEl.innerText = "Gagal kirim - akan dicoba lagi";
+    statusEl.style.color = "#ffaa00";
+  }
+  
+  updateConnection();
 }
 
-document.getElementById("studentName").innerText=s.nama;
+/* =========================
+   INIT
+========================= */
 
-document.getElementById("studentClass").innerText="Kelas "+s.kelas;
-
-document.getElementById("scanTime").innerText="Scan "+time;
-
-if(s.foto){
-
-document.getElementById("studentPhoto").src=s.foto;
-
-}
-
-}
-
-
-/* ======================
-SCAN SUCCESS
-====================== */
-
-function onScanSuccess(decodedText){
-
-const now=Date.now();
-
-if(now-lastScan<2000)return;
-
-lastScan=now;
-
-displayStudent(decodedText);
-
-document.getElementById("beepSound").play();
-
-statusEl.innerText="Scan "+decodedText;
-
-}
-
-
-/* START */
-
-loadStudents().then(startScanner);
+window.addEventListener("load", async () => {
+  updateConnection();
+  
+  // Load students first
+  await loadStudents();
+  
+  // Then start camera
+  if (isReady) {
+    startScanner();
+    
+    // Auto-send pending data
+    const scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+    if (scans.length > 0) {
+      statusEl.innerText = "Mengirim data tertunda...";
+      sendQueue();
+    }
+  }
+});
 
 </script>
 
