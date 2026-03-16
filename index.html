@@ -10,82 +10,113 @@
 <style>
 
 body{
+  margin:0;
   font-family:Arial;
-  text-align:center;
   background:#111;
   color:white;
 }
 
-/* CONNECTION STATUS */
+/* MAIN LAYOUT */
 
-#connectionStatus{
-  position:fixed;
-  top:10px;
-  right:10px;
-  font-size:16px;
-  padding:6px 12px;
-  border-radius:6px;
-  background:#222;
+.container{
+  display:flex;
+  height:100vh;
 }
 
-.online{
+/* SCANNER PANEL */
+
+.scanPanel{
+  width:320px;
+  padding:20px;
+  border-right:2px solid #333;
+}
+
+#reader{
+  width:100%;
+}
+
+/* STUDENT PANEL */
+
+.infoPanel{
+  flex:1;
+  padding:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.studentCard{
+  background:#1b1b1b;
+  border-radius:12px;
+  padding:30px;
+  width:420px;
+  text-align:center;
+  box-shadow:0 0 20px rgba(0,0,0,0.6);
+}
+
+.studentPhoto{
+  width:120px;
+  height:120px;
+  border-radius:10px;
+  object-fit:cover;
+  margin-bottom:15px;
+}
+
+.studentID{
+  font-size:18px;
+  color:#aaa;
+}
+
+.studentName{
+  font-size:28px;
+  font-weight:bold;
+  margin-top:10px;
+}
+
+.studentClass{
+  font-size:20px;
+  color:#ccc;
+}
+
+.scanTime{
+  margin-top:15px;
+  font-size:18px;
   color:lime;
 }
 
-.offline{
-  color:red;
-}
-
-/* SCANNER */
-
-#reader{
-  width:350px;
-  margin:auto;
-}
-
-/* STATUS TEXT */
+/* STATUS */
 
 #status{
   margin-top:20px;
-  font-size:22px;
 }
 
-.ok{
-  color:lime;
-}
+/* MOBILE */
 
-.error{
-  color:red;
-}
+@media(max-width:800px){
 
-/* LOADING OVERLAY */
-
-#loadingOverlay{
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background:rgba(0,0,0,0.9);
-  display:none;
-  justify-content:center;
-  align-items:center;
+.container{
   flex-direction:column;
-  z-index:999;
 }
 
-.loader{
-  border:6px solid #333;
-  border-top:6px solid lime;
-  border-radius:50%;
-  width:60px;
-  height:60px;
-  animation:spin 1s linear infinite;
+.scanPanel{
+  width:100%;
+  border-right:none;
+  border-bottom:2px solid #333;
 }
 
-@keyframes spin{
-  0%{transform:rotate(0deg);}
-  100%{transform:rotate(360deg);}
+.infoPanel{
+  padding:20px;
+}
+
+.studentCard{
+  width:90%;
+}
+
+.studentPhoto{
+  width:100px;
+  height:100px;
+}
+
 }
 
 </style>
@@ -94,245 +125,160 @@ body{
 
 <body>
 
-<h2>Scan QR Absensi</h2>
+<div class="container">
 
-<div id="connectionStatus">🟢 Online</div>
+<!-- LEFT / SCANNER -->
+
+<div class="scanPanel">
+
+<h3>Scanner</h3>
 
 <div id="reader"></div>
 
 <div id="status">Menunggu scan...</div>
 
-<div id="loadingOverlay">
-  <div class="loader"></div>
-  <p>Mengirim data...</p>
+</div>
+
+<!-- RIGHT / STUDENT INFO -->
+
+<div class="infoPanel">
+
+<div class="studentCard">
+
+<img id="studentPhoto" class="studentPhoto"
+src="https://via.placeholder.com/120">
+
+<div id="studentID" class="studentID">ID: -</div>
+
+<div id="studentName" class="studentName">
+Belum ada scan
+</div>
+
+<div id="studentClass" class="studentClass"></div>
+
+<div id="scanTime" class="scanTime"></div>
+
+</div>
+
+</div>
+
 </div>
 
 <audio id="beepSound"
-src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">
-</audio>
+src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
 <script>
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzwgwoKQNXSWn7BrwlzZe1XmVlY0JnGgA6CKY7cjVUXols6Oo_7IyBIiuVDmoQh__wO/exec";
+const API_URL="https://script.google.com/macros/s/AKfycbzwgwoKQNXSWn7BrwlzZe1XmVlY0JnGgA6CKY7cjVUXols6Oo_7IyBIiuVDmoQh__wO/exec";
 
-let lastScan = 0;
-let sendTimer = null;
+let students={};
 
-const statusEl = document.getElementById("status");
-const qr = new Html5Qrcode("reader");
+const qr=new Html5Qrcode("reader");
 
+const statusEl=document.getElementById("status");
 
-/* =========================
-   CONNECTION INDICATOR
-========================= */
+let lastScan=0;
 
-function updateConnection(){
 
-  const el = document.getElementById("connectionStatus");
+/* ======================
+LOAD STUDENT DATABASE
+====================== */
 
-  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
+async function loadStudents(){
 
-  if(navigator.onLine){
+const res=await fetch(API_URL+"?action=data");
 
-    el.className="online";
-    el.innerText="🟢 Online";
+const data=await res.json();
 
-  }else{
+data.forEach(s=>{
 
-    el.className="offline";
-    el.innerText="🔴 Offline ("+scans.length+" data tersimpan)";
-
-  }
-
-}
-
-window.addEventListener("online",updateConnection);
-window.addEventListener("offline",updateConnection);
-
-
-/* =========================
-   START CAMERA
-========================= */
-
-async function startScanner(){
-
-  const devices = await Html5Qrcode.getCameras();
-
-  if(!devices || devices.length===0){
-
-    statusEl.innerText="No camera found";
-    return;
-
-  }
-
-  let cameraId=null;
-
-  for(const cam of devices){
-
-    const name=(cam.label||"").toLowerCase();
-
-    if(
-      name.includes("back") ||
-      name.includes("rear") ||
-      name.includes("environment")
-    ){
-      if(!name.includes("wide")){
-        cameraId=cam.id;
-        break;
-      }
-    }
-
-  }
-
-  if(!cameraId){
-    cameraId=devices[0].id;
-  }
-
-  qr.start(
-    cameraId,
-    {fps:12,qrbox:{width:200,height:200}},
-    onScanSuccess
-  );
-
-}
-
-
-/* =========================
-   SCAN SUCCESS
-========================= */
-
-function onScanSuccess(decodedText){
-
-  const now = Date.now();
-
-  if(now-lastScan<2000){
-    return;
-  }
-
-  lastScan=now;
-
-  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
-
-  let exists = scans.some(s=>s.id===decodedText);
-
-  if(!exists){
-
-    scans.push({
-      id:decodedText,
-      type:"PAGI",
-      time:now
-    });
-
-    localStorage.setItem("scanQueue",JSON.stringify(scans));
-
-    document.getElementById("beepSound").play();
-
-    statusEl.className="ok";
-    statusEl.innerText="✔ Scan tersimpan: "+decodedText;
-
-    clearTimeout(sendTimer);
-    sendTimer=setTimeout(sendQueue,7000);
-
-  }else{
-
-    statusEl.className="error";
-    statusEl.innerText="Duplicate scan blocked";
-
-  }
-
-  updateConnection();
-
-}
-
-
-/* =========================
-   SEND QUEUE
-========================= */
-
-function sendQueue(){
-
-  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
-
-  if(scans.length===0){
-    return;
-  }
-
-  statusEl.className="";
-  statusEl.innerText="Mengirim "+scans.length+" data...";
-
-  document.getElementById("loadingOverlay").style.display="flex";
-  document.getElementById("reader").style.display="none";
-
-  fetch(API_URL+"?action=bulkScan",{
-    method:"POST",
-    body:JSON.stringify(scans)
-  })
-
-  .then(r=>r.json())
-
-  .then(data=>{
-
-    document.getElementById("loadingOverlay").style.display="none";
-    document.getElementById("reader").style.display="block";
-
-    if(data.status==="ok"){
-
-      localStorage.removeItem("scanQueue");
-
-      statusEl.className="ok";
-      statusEl.innerText="✔ "+scans.length+" data terkirim";
-
-    }else{
-
-      statusEl.className="error";
-      statusEl.innerText="Server error";
-
-    }
-
-    updateConnection();
-
-  })
-
-  .catch(err=>{
-
-    console.log(err);
-
-    document.getElementById("loadingOverlay").style.display="none";
-    document.getElementById("reader").style.display="block";
-
-    statusEl.className="error";
-    statusEl.innerText="Network error (data tetap tersimpan)";
-
-    updateConnection();
-
-  });
-
-}
-
-
-/* =========================
-   AUTO SEND ON PAGE LOAD
-========================= */
-
-window.addEventListener("load",()=>{
-
-  updateConnection();
-
-  let scans = JSON.parse(localStorage.getItem("scanQueue") || "[]");
-
-  if(scans.length>0){
-
-    statusEl.innerText="Mengirim data tertunda...";
-    sendQueue();
-
-  }
+students[s.id]=s;
 
 });
 
+}
 
-/* START CAMERA */
 
-startScanner();
+/* ======================
+START SCANNER
+====================== */
+
+async function startScanner(){
+
+const devices=await Html5Qrcode.getCameras();
+
+const cameraId=devices[0].id;
+
+qr.start(
+cameraId,
+{fps:12,qrbox:{width:200,height:200}},
+onScanSuccess
+);
+
+}
+
+
+/* ======================
+DISPLAY STUDENT
+====================== */
+
+function displayStudent(id){
+
+const s=students[id];
+
+const time=new Date().toLocaleTimeString();
+
+document.getElementById("studentID").innerText="ID: "+id;
+
+if(!s){
+
+document.getElementById("studentName").innerText="Unknown ID";
+
+document.getElementById("studentClass").innerText="";
+
+return;
+
+}
+
+document.getElementById("studentName").innerText=s.nama;
+
+document.getElementById("studentClass").innerText="Kelas "+s.kelas;
+
+document.getElementById("scanTime").innerText="Scan "+time;
+
+if(s.foto){
+
+document.getElementById("studentPhoto").src=s.foto;
+
+}
+
+}
+
+
+/* ======================
+SCAN SUCCESS
+====================== */
+
+function onScanSuccess(decodedText){
+
+const now=Date.now();
+
+if(now-lastScan<2000)return;
+
+lastScan=now;
+
+displayStudent(decodedText);
+
+document.getElementById("beepSound").play();
+
+statusEl.innerText="Scan "+decodedText;
+
+}
+
+
+/* START */
+
+loadStudents().then(startScanner);
 
 </script>
 
